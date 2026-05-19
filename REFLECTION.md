@@ -2,7 +2,7 @@
 **Name:** Ritji Ishaku
 **Cohort:** Design to MVP Bootcamp
 **Live URL:** https://secure-gate-taupe.vercel.app
-**GitHub Repo:** https://github.com/ritjiishaku/SecureGate.git
+**GitHub Repo:** https://github.com/ritjiishaku/SecureGate
 
 ---
 
