@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect, useRef } from "react";
 import PasswordStrength from "@/components/PasswordStrength";
 
 function getPasswordError(password: string): string | undefined {
@@ -24,6 +24,31 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+
+  const [tokenValidating, setTokenValidating] = useState(true);
+  const [tokenError, setTokenError] = useState("");
+  const verifyStarted = useRef(false);
+
+  useEffect(() => {
+    if (!token || verifyStarted.current) return;
+    verifyStarted.current = true;
+
+    async function checkToken() {
+      try {
+        const res = await fetch(`/api/auth/reset-password?token=${encodeURIComponent(token)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          setTokenError(data.message || "Invalid or expired link");
+        }
+      } catch {
+        setTokenError("Failed to validate reset link. Please try again.");
+      } finally {
+        setTokenValidating(false);
+      }
+    }
+
+    checkToken();
+  }, [token]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -61,6 +86,45 @@ export default function ResetPasswordPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (tokenValidating) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="card text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+            <svg className="h-6 w-6 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          </div>
+          <h2 className="card-heading">Validating link...</h2>
+          <p className="card-subtext mt-3">Please wait while we verify your password reset link.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (tokenError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="card text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
+            <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h2 className="card-heading">Invalid reset link</h2>
+          <p className="card-subtext mt-3">{tokenError}</p>
+          <a
+            href="/forgot-password"
+            className="mt-6 inline-block rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
+          >
+            Request new reset link
+          </a>
+        </div>
+      </div>
+    );
   }
 
   if (success) {

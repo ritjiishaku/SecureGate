@@ -4,14 +4,28 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { loginRatelimit } from "@/lib/ratelimit";
 
-function getIpFromRequest(req: Request): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) {
-    return realIp;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getIpFromRequest(req: any): string {
+  if (!req) return "127.0.0.1";
+
+  if (typeof req.headers?.get === "function") {
+    const forwarded = req.headers.get("x-forwarded-for");
+    if (forwarded) {
+      return forwarded.split(",")[0].trim();
+    }
+    const realIp = req.headers.get("x-real-ip");
+    if (realIp) {
+      return realIp;
+    }
+  } else if (req.headers) {
+    const forwarded = req.headers["x-forwarded-for"];
+    if (forwarded) {
+      return forwarded.split(",")[0].trim();
+    }
+    const realIp = req.headers["x-real-ip"];
+    if (realIp) {
+      return realIp;
+    }
   }
   return "127.0.0.1";
 }
@@ -59,7 +73,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user.emailVerified) {
-          return null;
+          throw new Error("unverified");
         }
 
         const isValid = await bcrypt.compare(

@@ -87,3 +87,49 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get("token");
+
+    if (!token) {
+      return NextResponse.json(
+        { message: "Missing token" },
+        { status: 400 },
+      );
+    }
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+    });
+
+    if (!resetToken) {
+      return NextResponse.json(
+        { message: "This reset link is invalid or has already been used" },
+        { status: 404 },
+      );
+    }
+
+    if (resetToken.expires < new Date()) {
+      await prisma.passwordResetToken.delete({
+        where: { id: resetToken.id },
+      });
+
+      return NextResponse.json(
+        { message: "This reset link has expired. Please request a new one." },
+        { status: 410 },
+      );
+    }
+
+    return NextResponse.json(
+      { message: "Token is valid", email: resetToken.email },
+      { status: 200 },
+    );
+  } catch {
+    return NextResponse.json(
+      { message: "Something went wrong" },
+      { status: 500 },
+    );
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 type Status = "loading" | "success" | "error";
 
@@ -16,7 +16,12 @@ export default function VerifyEmailPage() {
   const [resendSent, setResendSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
 
+  const verifyStarted = useRef(false);
+
   useEffect(() => {
+    if (!token || verifyStarted.current) return;
+    verifyStarted.current = true;
+
     async function verify() {
       try {
         const res = await fetch(
@@ -41,9 +46,7 @@ export default function VerifyEmailPage() {
       }
     }
 
-    if (token) {
-      verify();
-    }
+    verify();
   }, [token]);
 
   async function handleResend() {

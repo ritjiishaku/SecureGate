@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendVerificationEmail, sendDuplicateSignupEmail } from "@/lib/email";
 
 const signupSchema = z.object({
   name: z.string().min(2),
@@ -36,12 +36,10 @@ export async function POST(request: Request) {
     });
 
     if (existingUser) {
+      await sendDuplicateSignupEmail(email, existingUser.name ?? "User");
       return NextResponse.json(
-        {
-          message:
-            "If this email is available, your account will be created",
-        },
-        { status: 409 },
+        { message: "Account created. Check your email to verify." },
+        { status: 201 },
       );
     }
 

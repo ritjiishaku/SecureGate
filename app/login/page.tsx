@@ -20,12 +20,44 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+
   const queryError =
     errorParam === "unverified"
       ? "Please verify your email before signing in."
       : errorParam
         ? ERROR_MESSAGES[errorParam] ?? errorParam
         : "";
+
+  const isUnverified = error === "unverified" || errorParam === "unverified";
+
+  async function handleResendVerification() {
+    if (!email) {
+      setError("Please enter your email address first");
+      return;
+    }
+    setResendLoading(true);
+    setResendSuccess(false);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        setResendSuccess(true);
+      } else {
+        const data = await res.json();
+        setError(data.message || "Failed to resend verification email.");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setResendLoading(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -46,7 +78,13 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        if (result.error === "unverified") {
+          setError("unverified");
+        } else if (result.error.includes("Too many login attempts")) {
+          setError(result.error);
+        } else {
+          setError("Invalid email or password");
+        }
       } else {
         router.push("/dashboard");
       }
@@ -96,11 +134,41 @@ function LoginForm() {
             </Link>
           </div>
 
-          {(error || queryError) && (
-            <div className="rounded-lg bg-red-500/10 px-4 py-3">
-              <p className="text-sm text-red-400">
-                {queryError || error}
+          {resendSuccess && (
+            <div className="rounded-lg bg-emerald-500/10 px-4 py-3">
+              <p className="text-sm text-emerald-400 text-center">
+                A new verification link has been sent to your email.
               </p>
+            </div>
+          )}
+
+          {(error || queryError) && !resendSuccess && (
+            <div className="rounded-lg bg-red-500/10 px-4 py-3">
+              {isUnverified ? (
+                <div className="text-center">
+                  <p className="text-sm text-red-400">
+                    Your email is unverified. Please verify it before signing in.
+                  </p>
+                  {email ? (
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={resendLoading}
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-accent underline hover:text-accent-hover disabled:opacity-50"
+                    >
+                      {resendLoading ? "Resending..." : "Resend verification link"}
+                    </button>
+                  ) : (
+                    <p className="mt-1 text-xs text-slate-400">
+                      Enter your email above to resend the verification link.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-red-400">
+                  {queryError || error}
+                </p>
+              )}
             </div>
           )}
 

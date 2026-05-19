@@ -13,7 +13,8 @@ function getStrength(password: string): { label: string; score: number; color: s
 
   if (password.length === 0) return { label: "", score: 0, color: "", bg: "" };
   if (score <= 1) return { label: "Weak", score: 1, color: "text-red-400", bg: "bg-red-500/30" };
-  if (score <= 2) return { label: "Fair", score: 2, color: "text-amber-400", bg: "bg-amber-500/30" };
+  if (score === 2) return { label: "Fair", score: 2, color: "text-amber-400", bg: "bg-amber-500/30" };
+  if (score === 3) return { label: "Good", score: 3, color: "text-accent", bg: "bg-accent/30" };
   return { label: "Strong", score: 4, color: "text-emerald-400", bg: "bg-emerald-500/30" };
 }
 
