@@ -3,6 +3,19 @@ import crypto from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { forgotPasswordRatelimit } from "@/lib/ratelimit";
+
+function getIpFromRequest(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp;
+  }
+  return "127.0.0.1";
+}
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -10,6 +23,16 @@ const forgotPasswordSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const ip = getIpFromRequest(request);
+    const { success } = await forgotPasswordRatelimit.limit(ip);
+
+    if (!success) {
+      return NextResponse.json(
+        { message: "Too many requests. Please wait before trying again." },
+        { status: 429 },
+      );
+    }
+
     const body = await request.json();
 
     const parsed = forgotPasswordSchema.safeParse(body);
