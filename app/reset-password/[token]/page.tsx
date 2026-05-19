@@ -2,13 +2,16 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, FormEvent } from "react";
+import PasswordStrength from "@/components/PasswordStrength";
 
-const requirements = [
-  { label: "At least 8 characters", test: (s: string) => s.length >= 8 },
-  { label: "One uppercase letter", test: (s: string) => /[A-Z]/.test(s) },
-  { label: "One number", test: (s: string) => /[0-9]/.test(s) },
-  { label: "One special character", test: (s: string) => /[^a-zA-Z0-9]/.test(s) },
-];
+function getPasswordError(password: string): string | undefined {
+  if (!password) return "Password is required";
+  if (password.length < 8) return "At least 8 characters";
+  if (!/[A-Z]/.test(password)) return "Must include an uppercase letter";
+  if (!/[0-9]/.test(password)) return "Must include a number";
+  if (!/[^a-zA-Z0-9]/.test(password)) return "Must include a special character";
+  return undefined;
+}
 
 export default function ResetPasswordPage() {
   const params = useParams();
@@ -17,204 +20,128 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ password?: string; confirmPassword?: string }>({});
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
 
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password, confirmPassword }),
-    });
+    const pwErr = getPasswordError(password);
+    const confirmErr =
+      confirmPassword
+        ? password !== confirmPassword
+          ? "Passwords do not match"
+          : undefined
+        : "Please confirm your password";
 
-    const data = await res.json();
+    setFieldErrors({ password: pwErr, confirmPassword: confirmErr });
+    if (pwErr || confirmErr) return;
 
-    if (res.ok) {
-      setSuccess(true);
-      setTimeout(() => router.push("/login"), 2000);
-    } else {
-      setError(data.message);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password, confirmPassword }),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccess(true);
+        setTimeout(() => router.push("/login"), 2500);
+      } else {
+        setError(data.message);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  return (
-    <div style={container}>
-      <div style={card}>
-        <h1 style={heading}>Reset your password</h1>
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <div className="card text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10">
+            <svg className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="card-heading">Password reset</h2>
+          <p className="card-subtext mt-3">
+            Your password has been updated. Redirecting to sign in...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-        {success ? (
-          <>
-            <p style={text}>
-              Password reset successfully. Redirecting to sign in...
-            </p>
-          </>
-        ) : (
-          <form onSubmit={handleSubmit}>
+  return (
+    <div className="flex min-h-screen items-center justify-center px-6 py-12">
+      <div className="card">
+        <h1 className="card-heading">Reset your password</h1>
+        <p className="card-subtext">Choose a new password for your account.</p>
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
+          <div>
+            <label htmlFor="password" className="field-label">New Password</label>
             <input
+              id="password"
               type="password"
-              placeholder="New password"
+              placeholder="Enter a strong password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
-                setError("");
+                setFieldErrors((prev) => ({ ...prev, password: undefined }));
               }}
-              required
-              style={input}
+              className={`input-field ${fieldErrors.password ? "input-error" : ""}`}
             />
+            <PasswordStrength password={password} />
+            {fieldErrors.password && <p className="field-error">{fieldErrors.password}</p>}
+          </div>
 
-            <div style={requirementsContainer}>
-              {requirements.map((req) => (
-                <div key={req.label} style={requirementRow}>
-                  <span style={requirementIcon(req.test(password))}>
-                    {req.test(password) ? "\u2713" : "\u25CB"}
-                  </span>
-                  <span
-                    style={
-                      req.test(password)
-                        ? requirementMet
-                        : requirementUnmet
-                    }
-                  >
-                    {req.label}
-                  </span>
-                </div>
-              ))}
-              <div style={requirementRow}>
-                <span
-                  style={requirementIcon(
-                    password.length > 0 && password === confirmPassword,
-                  )}
-                >
-                  {password.length > 0 && password === confirmPassword
-                    ? "\u2713"
-                    : "\u25CB"}
-                </span>
-                <span
-                  style={
-                    password.length > 0 && password === confirmPassword
-                      ? requirementMet
-                      : requirementUnmet
-                  }
-                >
-                  Passwords match
-                </span>
-              </div>
-            </div>
-
+          <div>
+            <label htmlFor="confirmPassword" className="field-label">Confirm New Password</label>
             <input
+              id="confirmPassword"
               type="password"
-              placeholder="Confirm new password"
+              placeholder="Re-enter your password"
               value={confirmPassword}
               onChange={(e) => {
                 setConfirmPassword(e.target.value);
-                setError("");
+                setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
               }}
-              required
-              style={input}
+              className={`input-field ${fieldErrors.confirmPassword ? "input-error" : ""}`}
             />
+            {fieldErrors.confirmPassword && <p className="field-error">{fieldErrors.confirmPassword}</p>}
+          </div>
 
-            {error && <p style={errorText}>{error}</p>}
+          {error && (
+            <div className="rounded-lg bg-red-500/10 px-4 py-3">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
 
-            <button type="submit" style={button}>
-              Reset password
-            </button>
-          </form>
-        )}
+          <button type="submit" disabled={loading} className="btn-primary">
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Resetting...
+              </span>
+            ) : (
+              "Reset password"
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );
 }
-
-const container: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  minHeight: "100vh",
-  backgroundColor: "#f9fafb",
-  padding: "24px",
-};
-
-const card: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-  border: "1px solid #e5e7eb",
-  borderRadius: "8px",
-  padding: "40px",
-  maxWidth: "440px",
-  width: "100%",
-};
-
-const heading: React.CSSProperties = {
-  fontSize: "24px",
-  fontWeight: "600",
-  color: "#111827",
-  margin: "0 0 24px",
-};
-
-const text: React.CSSProperties = {
-  fontSize: "16px",
-  color: "#374151",
-  margin: "0 0 24px",
-  lineHeight: "24px",
-};
-
-const input: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  padding: "10px 14px",
-  fontSize: "16px",
-  borderRadius: "6px",
-  border: "1px solid #d1d5db",
-  marginBottom: "16px",
-  boxSizing: "border-box",
-};
-
-const requirementsContainer: React.CSSProperties = {
-  marginBottom: "16px",
-};
-
-const requirementRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  marginBottom: "4px",
-};
-
-function requirementIcon(met: boolean): React.CSSProperties {
-  return {
-    color: met ? "#16a34a" : "#9ca3af",
-    fontSize: "14px",
-    width: "16px",
-  };
-}
-
-const requirementMet: React.CSSProperties = {
-  fontSize: "14px",
-  color: "#16a34a",
-};
-
-const requirementUnmet: React.CSSProperties = {
-  fontSize: "14px",
-  color: "#6b7280",
-};
-
-const errorText: React.CSSProperties = {
-  fontSize: "14px",
-  color: "#dc2626",
-  margin: "0 0 16px",
-};
-
-const button: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  backgroundColor: "#111827",
-  color: "#ffffff",
-  padding: "12px 24px",
-  borderRadius: "6px",
-  fontSize: "16px",
-  fontWeight: "600",
-  border: "none",
-  cursor: "pointer",
-};
