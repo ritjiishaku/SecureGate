@@ -37,12 +37,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         const ip = getIpFromRequest(req as unknown as Request);
-        const { success } = await loginRatelimit.limit(ip);
 
-        if (!success) {
-          throw new Error(
-            "Too many login attempts. Please try again in 10 minutes.",
-          );
+        try {
+          const { success } = await loginRatelimit.limit(ip);
+
+          if (!success) {
+            throw new Error(
+              "Too many login attempts. Please try again in 10 minutes.",
+            );
+          }
+        } catch (error) {
+          console.error("Rate limit check failed (allowing login):", error);
         }
 
         const user = await prisma.user.findUnique({
