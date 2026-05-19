@@ -5,6 +5,11 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  CredentialsSignin: "Invalid email or password",
+  SessionRequired: "Please sign in to continue",
+};
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,10 +20,12 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const unverifiedMessage =
+  const queryError =
     errorParam === "unverified"
       ? "Please verify your email before signing in."
-      : "";
+      : errorParam
+        ? ERROR_MESSAGES[errorParam] ?? errorParam
+        : "";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -89,10 +96,10 @@ function LoginForm() {
             </Link>
           </div>
 
-          {(error || unverifiedMessage) && (
+          {(error || queryError) && (
             <div className="rounded-lg bg-red-500/10 px-4 py-3">
               <p className="text-sm text-red-400">
-                {unverifiedMessage || error}
+                {queryError || error}
               </p>
             </div>
           )}
